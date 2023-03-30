@@ -67,7 +67,9 @@ func NewConversation(cookiePath string, cookies []map[string]interface{}, proxy 
 func (con *Conversation) Init() error {
 	// session
 	client := resty.New()
-	client.SetProxy(con.proxy)
+	if con.proxy != "" {
+		client.SetProxy(con.proxy)
+	}
 	client.SetTimeout(time.Second * 30)
 	con.Session = client.R().
 		SetHeaders(HEADERS_INIT_CONVER)
