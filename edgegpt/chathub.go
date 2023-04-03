@@ -5,8 +5,6 @@ import (
 	"log"
 	"net/http"
 	"net/url"
-	"strings"
-	"time"
 
 	"github.com/gorilla/websocket"
 )
@@ -44,21 +42,13 @@ type ChatHub struct {
 	// The websocket connection.
 	ws      *websocket.Conn
 	request *ChatHubRequest
-
-	// Buffered channel of outbound messages.
-	sendChan chan []byte
-	recvChan chan []byte
-	answer   chan *Answer
 }
 
 func NewChatHub(addr, path string, conversation *Conversation) *ChatHub {
 	chathub := &ChatHub{
-		addr:     addr,
-		path:     path,
-		done:     make(chan struct{}),
-		sendChan: make(chan []byte, 9999),
-		recvChan: make(chan []byte, 9999),
-		answer:   make(chan *Answer, 9999),
+		addr: addr,
+		path: path,
+		done: make(chan struct{}),
 		request: NewChatHubRequest(
 			conversation.Struct["conversationSignature"].(string),
 			conversation.Struct["clientId"].(string),
@@ -69,7 +59,7 @@ func NewChatHub(addr, path string, conversation *Conversation) *ChatHub {
 	return chathub
 }
 
-func (chathub *ChatHub) Init() error {
+func (chathub *ChatHub) newConnect() error {
 	u := url.URL{
 		Scheme: "wss",
 		Host:   chathub.addr,
@@ -84,39 +74,8 @@ func (chathub *ChatHub) Init() error {
 	if err != nil {
 		log.Fatal("dial:", err)
 	}
-	// defer c.Close()
 	chathub.ws = c
 	return nil
-}
-
-func (chathub *ChatHub) Start() {
-	// reveive
-	go func() {
-		defer close(chathub.done)
-		for {
-			_, message, err := chathub.ws.ReadMessage()
-			if err != nil {
-				log.Println("read err:", err)
-				return
-			}
-			// log.Printf("recv: %s", message)
-			chathub.recvChan <- message
-		}
-	}()
-	// send
-	for {
-		select {
-		case <-chathub.done:
-			log.Println("send done")
-			return
-		case msg := <-chathub.sendChan:
-			err := chathub.ws.WriteMessage(websocket.TextMessage, msg)
-			if err != nil {
-				log.Println("write err:", err)
-				return
-			}
-		}
-	}
 }
 
 func (chathub *ChatHub) Close() error {
@@ -132,14 +91,15 @@ func (chathub *ChatHub) initialHandshake() error {
 	if err != nil {
 		return fmt.Errorf("initialHandshake write err: %s", err.Error())
 	}
-	// await self.wss.recv()
+	_, message, err := chathub.ws.ReadMessage()
+	if err != nil {
+		return fmt.Errorf("initialHandshake err: %v %s", message, err.Error())
+	}
 	return nil
 }
 
 // Ask a question to the bot
-func (chathub *ChatHub) askStream(prompt string, conversationStyle ConversationStyle, timeout time.Duration) error {
-	defer close(chathub.answer)
-
+func (chathub *ChatHub) askStream(prompt string, conversationStyle ConversationStyle, callback func(answer *Answer)) error {
 	err := chathub.initialHandshake()
 	if err != nil {
 		return err
@@ -155,35 +115,22 @@ func (chathub *ChatHub) askStream(prompt string, conversationStyle ConversationS
 	chathub.ws.WriteMessage(websocket.TextMessage, []byte(msg))
 	// var final bool = false
 	for {
-		select {
-		case <-chathub.done:
+		_, message, err := chathub.ws.ReadMessage()
+		if err != nil {
+			return err
+		}
+		if string(message) == "" {
 			return nil
-		case msg := <-chathub.recvChan:
-			objects := strings.Split(string(msg), DELIMITER)
-			for _, obj := range objects {
-				if obj == "" {
-					continue
-				}
-				answer := NewAnswer(obj)
-				mType := answer.Type()
-				switch mType {
-				case 1:
-					chathub.answer <- answer
-				case 2:
-					chathub.answer <- answer
-					answer.Done()
-					return nil
-				default:
-					log.Println(obj)
-				}
-			}
-		case <-time.After(timeout):
-			return fmt.Errorf("timeout")
+		}
+		answer := NewAnswer(string(message))
+		if callback != nil {
+			callback(answer)
+		}
+		if answer.IsDone() {
+			return nil
+		}
+		if answer.Type() != 1 && answer.Type() != 2 {
+			log.Println(answer.Raw())
 		}
 	}
-	return nil
-}
-
-func (chathub *ChatHub) Answer() chan *Answer {
-	return chathub.answer
 }
