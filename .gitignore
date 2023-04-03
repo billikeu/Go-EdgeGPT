@@ -1,3 +1,4 @@
 *.json
 *.exe
 *.exe~
+/data

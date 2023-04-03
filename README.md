@@ -64,6 +64,6 @@ This project exists thanks to all the people who contribute.
   <img src="https://contrib.rocks/image?repo=billikeu/Go-EdgeGPT" />
  </a>
 
-## reference
+## Reference
 
 Thanks for [EdgeGPT](https://github.com/acheong08/EdgeGPT)
