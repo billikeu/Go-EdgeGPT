@@ -2,7 +2,6 @@ package edgegpt
 
 import (
 	"log"
-	"time"
 )
 
 // Combines everything to make it seamless
@@ -13,7 +12,6 @@ type ChatBot struct {
 	chatHub    *ChatHub
 	addr       string
 	path       string
-	Err        error
 }
 
 func NewChatBot(cookiePath string, cookies []map[string]interface{}, proxy string) *ChatBot {
@@ -26,7 +24,6 @@ func NewChatBot(cookiePath string, cookies []map[string]interface{}, proxy strin
 		addr:       addr,
 		path:       path,
 		chatHub:    nil,
-		Err:        nil,
 	}
 	return bot
 }
@@ -37,23 +34,27 @@ func (bot *ChatBot) Init() error {
 	if err != nil {
 		return err
 	}
-	log.Println("init conversation success")
 	bot.chatHub = NewChatHub(bot.addr, bot.path, conversation)
-	err = bot.chatHub.Init()
-	if err != nil {
-		return err
-	}
-	log.Println("init chathub success")
-	go bot.chatHub.Start()
-	log.Println("init chatbot success")
+	log.Println("init success")
 	return nil
 }
 
+/*
 // Ask a question to the bot
-func (bot *ChatBot) Ask(prompt string, conversationStyle ConversationStyle) error {
+The callback function is streaming,
+it will be called every time data is received,
+if you only want to get the final result,
+you can use `answer.IsDone()` to judge whether it is finished
+*/
+func (bot *ChatBot) Ask(prompt string, conversationStyle ConversationStyle, callback func(answer *Answer)) error {
+	// defer bot.chatHub.Close()
+	err := bot.chatHub.newConnect()
+	if err != nil {
+		return err
+	}
 	defer bot.chatHub.Close()
-	bot.Err = bot.chatHub.askStream(prompt, conversationStyle, time.Minute*5)
-	return bot.Err
+	log.Println("connect chathub success")
+	return bot.chatHub.askStream(prompt, conversationStyle, callback)
 }
 
 func (bot *ChatBot) Close() error {
@@ -68,8 +69,4 @@ func (bot *ChatBot) Reset() error {
 		return err
 	}
 	return nil
-}
-
-func (bot *ChatBot) Answer() chan *Answer {
-	return bot.chatHub.Answer()
 }
