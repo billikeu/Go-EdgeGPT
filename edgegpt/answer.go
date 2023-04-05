@@ -51,6 +51,12 @@ func (answer *Answer) Text() string {
 			return ""
 		}
 		lastMsg := messages[len(messages)-1].Get("text").String()
+		if lastMsg == "" {
+			lastMsg = messages[len(messages)-1].Get("hiddenText").String()
+		}
+		if lastMsg == "" {
+			lastMsg = messages[len(messages)-1].Get("spokenText").String()
+		}
 		return lastMsg
 	}
 	arguments := answer.j.Get("arguments").Array()
