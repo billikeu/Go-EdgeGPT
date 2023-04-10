@@ -44,6 +44,14 @@ func main() {
 
 ```
 
+## Others
+
+- https://github.com/billikeu/Go-EdgeGPT
+- https://github.com/billikeu/Go-ChatBot
+- https://github.com/billikeu/ChatGPT-App
+- https://github.com/billikeu/go-chatgpt
+- https://github.com/billikeu/AIArchive
+
 ## Star History
 
 [![Star History Chart](https://api.star-history.com/svg?repos=billikeu/Go-EdgeGPT&type=Date)](https://star-history.com/#billikeu/Go-EdgeGPT&Date)
